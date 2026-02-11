@@ -6,6 +6,7 @@ This service communicates with Ollama to analyze smart contracts.
 
 import httpx
 import json
+import re
 from typing import Optional
 from app.core.config import settings
 from app.core.exceptions import AIServiceError
@@ -57,7 +58,8 @@ class AIAnalyzer:
                         "prompt": full_prompt,
                         "stream": False,
                         "options": {
-                            "temperature": 0.1
+                            "temperature": 0.1,
+                            "num_predict": 1024
                         }
                     },
                     timeout=self.timeout
@@ -81,10 +83,25 @@ class AIAnalyzer:
         except Exception as e:
             raise AIServiceError(f"AI request failed: {str(e)}")
     
-    def _parse_json_response(self, response: str) -> dict:
+    def _clean_json_string(self, s: str) -> str:
+        """
+        Clean a string for JSON parsing.
+        Remove control characters and fix common issues.
+        """
+        s = re.sub(r'[\x00-\x1f\x7f-\x9f]', ' ', s)
+        s = s.replace('\n', ' ').replace('\r', ' ').replace('\t', ' ')
+        s = re.sub(r' +', ' ', s)
+        return s
+    
+    def _parse_json_response(self, response: str, debug_label: str = "") -> dict:
         """
         Parse JSON from AI response.
         """
+        print(f"\n{'='*50}")
+        print(f"DEBUG [{debug_label}] Raw AI Response:")
+        print(response[:500] if len(response) > 500 else response)
+        print(f"{'='*50}\n")
+        
         response = response.strip()
         
         if response.startswith("```json"):
@@ -97,17 +114,63 @@ class AIAnalyzer:
         response = response.strip()
         
         try:
-            return json.loads(response)
-        except json.JSONDecodeError:
-            start = response.find("{")
-            end = response.rfind("}") + 1
+            parsed = json.loads(response)
+            print(f"DEBUG [{debug_label}] Parsed successfully!")
+            return parsed
+        except json.JSONDecodeError as e:
+            print(f"DEBUG [{debug_label}] JSON parse error: {e}")
+            
+            cleaned = self._clean_json_string(response)
+            
+            try:
+                parsed = json.loads(cleaned)
+                print(f"DEBUG [{debug_label}] Parsed after cleaning!")
+                return parsed
+            except json.JSONDecodeError:
+                pass
+            
+            start = cleaned.find("{")
+            end = cleaned.rfind("}") + 1
             if start != -1 and end > start:
                 try:
-                    return json.loads(response[start:end])
-                except json.JSONDecodeError:
-                    pass
+                    parsed = json.loads(cleaned[start:end])
+                    print(f"DEBUG [{debug_label}] Parsed after extraction!")
+                    return parsed
+                except json.JSONDecodeError as e2:
+                    print(f"DEBUG [{debug_label}] Second parse error: {e2}")
             
-            return {"error": "Failed to parse AI response", "raw": response}
+            result = self._extract_fields_manually(response)
+            if result:
+                print(f"DEBUG [{debug_label}] Extracted manually!")
+                return result
+            
+            return {"error": "Failed to parse AI response", "raw": response[:200]}
+    
+    def _extract_fields_manually(self, response: str) -> dict:
+        """
+        Try to extract fields manually using regex if JSON parsing fails.
+        """
+        result = {}
+        
+        desc_match = re.search(r'"description"\s*:\s*"([^"]*(?:\\.[^"]*)*)"', response)
+        if desc_match:
+            result["description"] = desc_match.group(1).replace('\\"', '"')
+        
+        impact_match = re.search(r'"impact"\s*:\s*"([^"]*(?:\\.[^"]*)*)"', response)
+        if impact_match:
+            result["impact"] = impact_match.group(1).replace('\\"', '"')
+        
+        rec_match = re.search(r'"recommendation"\s*:\s*"([^"]*(?:\\.[^"]*)*)"', response)
+        if rec_match:
+            result["recommendation"] = rec_match.group(1).replace('\\"', '"')
+        
+        fix_match = re.search(r'"fixed_code"\s*:\s*"([^"]*(?:\\.[^"]*)*)"', response)
+        if fix_match:
+            result["fixed_code"] = fix_match.group(1).replace('\\"', '"').replace('\\n', '\n')
+        
+        if result:
+            return result
+        return None
     
     async def detect_vulnerabilities(self, contract_code: str) -> dict:
         """
@@ -121,7 +184,7 @@ class AIAnalyzer:
             user_prompt=user_prompt
         )
         
-        return self._parse_json_response(response)
+        return self._parse_json_response(response, "DETECTION")
     
     async def explain_vulnerability(
         self,
@@ -150,7 +213,7 @@ class AIAnalyzer:
             user_prompt=user_prompt
         )
         
-        return self._parse_json_response(response)
+        return self._parse_json_response(response, "EXPLANATION")
 
 
 ai_analyzer = AIAnalyzer()

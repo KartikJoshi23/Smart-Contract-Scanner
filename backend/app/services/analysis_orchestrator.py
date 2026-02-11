@@ -1,11 +1,7 @@
 """
 Analysis Orchestrator Service.
 
-This service coordinates the entire analysis process:
-1. Receive contract code
-2. Call AI for detection
-3. Call AI for explanations
-4. Save results to database
+This service coordinates the entire analysis process.
 """
 
 from datetime import datetime
@@ -30,14 +26,6 @@ class AnalysisOrchestrator:
     ) -> models.Analysis:
         """
         Run full analysis on a contract.
-        
-        Args:
-            db: Database session
-            analysis_id: ID of the analysis record
-            contract_code: Solidity source code
-            
-        Returns:
-            Updated Analysis model with results
         """
         analysis = db.query(models.Analysis).filter(
             models.Analysis.id == analysis_id
@@ -66,11 +54,16 @@ class AnalysisOrchestrator:
                 explanation = await ai_analyzer.explain_vulnerability(
                     vuln_type=vuln_data.get("type", "other"),
                     severity=vuln_data.get("severity", "medium"),
-                    function_name=vuln_data.get("function_name", ""),
+                    function_name=vuln_data.get("function_name", "unknown"),
                     vulnerable_code=vuln_data.get("vulnerable_code", ""),
                     brief_reason=vuln_data.get("brief_reason", ""),
                     contract_code=contract_code
                 )
+                
+                description = explanation.get("description") or vuln_data.get("brief_reason", "Vulnerability detected")
+                impact = explanation.get("impact") or "This vulnerability could potentially be exploited by attackers."
+                recommendation = explanation.get("recommendation") or "Review and fix the vulnerable code."
+                fixed_code = explanation.get("fixed_code") or None
                 
                 vuln_type = vuln_data.get("type", "other").lower()
                 if vuln_type not in ["reentrancy", "integer_overflow", "access_control", "unchecked_call", "frontrunning"]:
@@ -93,10 +86,10 @@ class AnalysisOrchestrator:
                     line_end=vuln_data.get("line_end"),
                     function_name=vuln_data.get("function_name"),
                     code_snippet=vuln_data.get("vulnerable_code"),
-                    description=explanation.get("description", vuln_data.get("brief_reason", "")),
-                    impact=explanation.get("impact"),
-                    recommendation=explanation.get("recommendation"),
-                    fixed_code=explanation.get("fixed_code")
+                    description=description,
+                    impact=impact,
+                    recommendation=recommendation,
+                    fixed_code=fixed_code
                 )
                 db.add(vulnerability)
             

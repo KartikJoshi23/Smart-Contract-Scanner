@@ -4,45 +4,25 @@ Prompts for explaining vulnerabilities.
 These prompts are sent to Llama 3.1 to generate human-readable explanations.
 """
 
-EXPLANATION_SYSTEM_PROMPT = """You are a smart contract security expert who explains vulnerabilities in simple terms.
+EXPLANATION_SYSTEM_PROMPT = """You are a smart contract security expert.
+You explain vulnerabilities in simple, clear terms.
+You always respond with valid JSON only. No extra text."""
 
-Your job is to:
-1. Explain what the vulnerability is
-2. Explain why it is dangerous
-3. Provide a clear recommendation to fix it
-4. Show the corrected code if possible
-
-Be clear and concise. Avoid overly technical jargon when possible."""
-
-EXPLANATION_USER_PROMPT = """Explain this smart contract vulnerability:
+EXPLANATION_USER_PROMPT = """A vulnerability was found in a smart contract.
 
 VULNERABILITY TYPE: {vuln_type}
 SEVERITY: {severity}
-FUNCTION NAME: {function_name}
+FUNCTION: {function_name}
+VULNERABLE CODE: {vulnerable_code}
+REASON: {brief_reason}
 
-VULNERABLE CODE:
-{vulnerable_code}
+Explain this vulnerability. Return ONLY this JSON format:
 
-BRIEF REASON: {brief_reason}
+{{"description": "What this vulnerability is and why the code is unsafe (2-3 sentences)", "impact": "What bad things could happen if exploited (2-3 sentences)", "recommendation": "How to fix this vulnerability (2-3 sentences)", "fixed_code": "The corrected Solidity code that fixes the issue"}}
 
-FULL CONTRACT CONTEXT:
-{contract_code}
+For the fixed_code, write the complete corrected function.
 
-Please provide:
-1. DESCRIPTION: A clear explanation of what this vulnerability is (2-3 sentences)
-2. IMPACT: What could happen if this is exploited (2-3 sentences)
-3. RECOMMENDATION: How to fix this issue (2-3 sentences)
-4. FIXED_CODE: The corrected version of the vulnerable code
-
-Format your response as JSON:
-{{
-    "description": "...",
-    "impact": "...",
-    "recommendation": "...",
-    "fixed_code": "..."
-}}
-
-Return ONLY the JSON object. No other text."""
+Return ONLY the JSON. No other text before or after."""
 
 
 def get_explanation_prompt(
@@ -55,24 +35,12 @@ def get_explanation_prompt(
 ) -> tuple[str, str]:
     """
     Get the system and user prompts for vulnerability explanation.
-    
-    Args:
-        vuln_type: Type of vulnerability
-        severity: Severity level
-        function_name: Name of affected function
-        vulnerable_code: The vulnerable code snippet
-        brief_reason: Brief reason from detection
-        contract_code: Full contract code for context
-        
-    Returns:
-        Tuple of (system_prompt, user_prompt)
     """
     user_prompt = EXPLANATION_USER_PROMPT.format(
         vuln_type=vuln_type,
         severity=severity,
         function_name=function_name,
         vulnerable_code=vulnerable_code,
-        brief_reason=brief_reason,
-        contract_code=contract_code
+        brief_reason=brief_reason
     )
     return EXPLANATION_SYSTEM_PROMPT, user_prompt
