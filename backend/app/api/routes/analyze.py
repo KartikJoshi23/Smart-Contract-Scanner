@@ -19,8 +19,10 @@ from app.schemas import (
     AnalysisProgress,
     AnalysisStatusEnum,
     SeverityEnum,
+    VulnerabilityDetail,
 )
 from app.core.exceptions import ValidationError, ContractNotFoundError
+from app.services import analysis_orchestrator, ai_analyzer
 
 router = APIRouter(prefix="/analyze")
 
@@ -43,20 +45,18 @@ async def analyze_code(
     2. Saves the contract to database
     3. Runs AI analysis
     4. Returns vulnerabilities found
-    
-    **Example Request:**
-    ```json
-    {
-        "contract_name": "MyToken",
-        "contract_code": "pragma solidity ^0.8.0; contract MyToken { ... }",
-        "network": "polygon"
-    }
-    ```
     """
-    # Generate code hash
+    if not await ai_analyzer.check_connection():
+        raise HTTPException(
+            status_code=503,
+            detail={
+                "error": "ai_unavailable",
+                "message": "AI service (Ollama) is not available. Please make sure Ollama is running."
+            }
+        )
+    
     code_hash = get_code_hash(input.contract_code)
     
-    # Check if contract already exists
     existing_contract = db.query(models.Contract).filter(
         models.Contract.code_hash == code_hash
     ).first()
@@ -64,7 +64,6 @@ async def analyze_code(
     if existing_contract:
         contract = existing_contract
     else:
-        # Create new contract record
         contract = models.Contract(
             name=input.contract_name,
             code=input.contract_code,
@@ -75,44 +74,70 @@ async def analyze_code(
         db.commit()
         db.refresh(contract)
     
-    # Create analysis record
     analysis = models.Analysis(
         contract_id=contract.id,
-        status=models.AnalysisStatus.PROCESSING
+        status=models.AnalysisStatus.PENDING,
+        detection_model=ai_analyzer.detection_model,
+        explanation_model=ai_analyzer.explanation_model
     )
     db.add(analysis)
     db.commit()
     db.refresh(analysis)
     
-    # TODO: Run actual AI analysis here
-    # For now, return a placeholder result
+    try:
+        analysis = await analysis_orchestrator.analyze_contract(
+            db=db,
+            analysis_id=analysis.id,
+            contract_code=input.contract_code
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "error": "analysis_failed",
+                "message": str(e)
+            }
+        )
     
-    # Update analysis as completed (placeholder)
-    analysis.status = models.AnalysisStatus.COMPLETED
-    analysis.overall_risk = models.SeverityLevel.INFO
-    analysis.risk_score = 0
-    analysis.summary = "Analysis complete. This is a placeholder - AI integration coming soon!"
-    analysis.scan_duration_ms = 100
-    analysis.completed_at = datetime.utcnow()
-    analysis.total_lines = len(input.contract_code.split('\n'))
-    analysis.vulnerable_lines = 0
-    analysis.functions_analyzed = 0
-    db.commit()
-    db.refresh(analysis)
+    vulnerabilities = []
+    for vuln in analysis.vulnerabilities:
+        vulnerabilities.append(VulnerabilityDetail(
+            id=vuln.id,
+            type=vuln.type.value,
+            severity=vuln.severity.value,
+            confidence=vuln.confidence.value,
+            verified=vuln.verified,
+            line_start=vuln.line_start,
+            line_end=vuln.line_end,
+            function_name=vuln.function_name,
+            code_snippet=vuln.code_snippet,
+            description=vuln.description,
+            impact=vuln.impact,
+            recommendation=vuln.recommendation,
+            fixed_code=vuln.fixed_code,
+            gas_estimate=vuln.gas_estimate,
+            references=vuln.references,
+            test_code=vuln.test_code,
+            test_output=vuln.test_output,
+            created_at=vuln.created_at
+        ))
     
     return AnalysisResult(
         id=analysis.id,
         contract_id=contract.id,
         contract_name=contract.name,
-        status=AnalysisStatusEnum.COMPLETED,
-        overall_risk=SeverityEnum.INFO,
-        risk_score=0,
+        status=AnalysisStatusEnum(analysis.status.value),
+        overall_risk=SeverityEnum(analysis.overall_risk) if analysis.overall_risk else None,
+        risk_score=analysis.risk_score,
         summary=analysis.summary,
         scan_duration_ms=analysis.scan_duration_ms,
         total_lines=analysis.total_lines,
-        vulnerable_lines=0,
-        functions_analyzed=0,
-        vulnerabilities=[],
+        vulnerable_lines=analysis.vulnerable_lines,
+        functions_analyzed=analysis.functions_analyzed,
+        detection_model=analysis.detection_model,
+        explanation_model=analysis.explanation_model,
+        vulnerabilities=vulnerabilities,
+        error_message=analysis.error_message,
         created_at=analysis.created_at,
         completed_at=analysis.completed_at
     )
@@ -125,22 +150,7 @@ async def analyze_address(
 ):
     """
     Analyze a smart contract from blockchain address.
-    
-    This endpoint:
-    1. Fetches contract code from blockchain
-    2. Runs the same analysis as /analyze/code
-    
-    **Example Request:**
-    ```json
-    {
-        "address": "0x1234567890abcdef1234567890abcdef12345678",
-        "network": "polygon"
-    }
-    ```
     """
-    # TODO: Implement contract fetching from blockchain
-    # For now, return a placeholder error
-    
     raise HTTPException(
         status_code=501,
         detail={
@@ -159,8 +169,6 @@ async def get_analysis(
 ):
     """
     Get analysis results by ID.
-    
-    Use this to retrieve results of a previous analysis.
     """
     analysis = db.query(models.Analysis).filter(
         models.Analysis.id == analysis_id
@@ -175,39 +183,37 @@ async def get_analysis(
             }
         )
     
-    # Get associated contract
     contract = analysis.contract
     
-    # Get vulnerabilities
     vulnerabilities = []
     for vuln in analysis.vulnerabilities:
-        vulnerabilities.append({
-            "id": vuln.id,
-            "type": vuln.type.value,
-            "severity": vuln.severity.value,
-            "confidence": vuln.confidence.value,
-            "verified": vuln.verified,
-            "line_start": vuln.line_start,
-            "line_end": vuln.line_end,
-            "function_name": vuln.function_name,
-            "code_snippet": vuln.code_snippet,
-            "description": vuln.description,
-            "impact": vuln.impact,
-            "recommendation": vuln.recommendation,
-            "fixed_code": vuln.fixed_code,
-            "gas_estimate": vuln.gas_estimate,
-            "references": vuln.references,
-            "test_code": vuln.test_code,
-            "test_output": vuln.test_output,
-            "created_at": vuln.created_at
-        })
+        vulnerabilities.append(VulnerabilityDetail(
+            id=vuln.id,
+            type=vuln.type.value,
+            severity=vuln.severity.value,
+            confidence=vuln.confidence.value,
+            verified=vuln.verified,
+            line_start=vuln.line_start,
+            line_end=vuln.line_end,
+            function_name=vuln.function_name,
+            code_snippet=vuln.code_snippet,
+            description=vuln.description,
+            impact=vuln.impact,
+            recommendation=vuln.recommendation,
+            fixed_code=vuln.fixed_code,
+            gas_estimate=vuln.gas_estimate,
+            references=vuln.references,
+            test_code=vuln.test_code,
+            test_output=vuln.test_output,
+            created_at=vuln.created_at
+        ))
     
     return AnalysisResult(
         id=analysis.id,
         contract_id=contract.id,
         contract_name=contract.name,
-        status=analysis.status.value,
-        overall_risk=analysis.overall_risk.value if analysis.overall_risk else None,
+        status=AnalysisStatusEnum(analysis.status.value),
+        overall_risk=SeverityEnum(analysis.overall_risk.value) if analysis.overall_risk else None,
         risk_score=analysis.risk_score,
         summary=analysis.summary,
         scan_duration_ms=analysis.scan_duration_ms,
@@ -230,8 +236,6 @@ async def get_analysis_status(
 ):
     """
     Get current status of an analysis.
-    
-    Use this for polling during long-running analyses.
     """
     analysis = db.query(models.Analysis).filter(
         models.Analysis.id == analysis_id
@@ -246,7 +250,6 @@ async def get_analysis_status(
             }
         )
     
-    # Determine progress based on status
     progress_map = {
         models.AnalysisStatus.PENDING: 0,
         models.AnalysisStatus.PROCESSING: 50,
@@ -270,7 +273,7 @@ async def get_analysis_status(
     
     return AnalysisProgress(
         analysis_id=analysis.id,
-        status=analysis.status.value,
+        status=AnalysisStatusEnum(analysis.status.value),
         progress=progress_map.get(analysis.status, 0),
         current_step=current_step_map.get(analysis.status, "Unknown"),
         steps_completed=steps_map.get(analysis.status, []),

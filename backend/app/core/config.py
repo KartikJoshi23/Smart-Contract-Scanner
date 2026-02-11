@@ -22,7 +22,7 @@ class Settings(BaseSettings):
     
     # Ollama (AI)
     ollama_host: str = "http://localhost:11434"
-    detection_model: str = "deepseek-coder-v2:16b"
+    detection_model: str = "deepseek-coder-v2:latest"
     explanation_model: str = "llama3.1:8b"
     
     # Alchemy (Blockchain RPC) - optional for now
