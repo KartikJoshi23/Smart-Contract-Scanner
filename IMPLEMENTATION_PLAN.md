@@ -1,4 +1,4 @@
-# Smart Contract Security Scanner - Implementation Plan
+# Smart Contract Security Scanner — Implementation Plan
 
 ## 📋 Table of Contents
 
@@ -23,9 +23,10 @@
 
 An AI-powered smart contract vulnerability detection tool that:
 - Analyzes Solidity smart contracts for security vulnerabilities
-- Uses local AI models (via Ollama) for detection and explanation
-- Generates comprehensive security reports
-- Provides fix recommendations with corrected code
+- Uses Google Gemini 2.5 Flash AI for detection and explanation
+- Fetches verified contracts from blockchain via Alchemy/Etherscan APIs
+- Generates comprehensive security reports with fix recommendations
+- Supports 6 blockchain networks (Ethereum, Polygon, BSC, Arbitrum, Optimism, Base)
 
 ### Why This Project?
 
@@ -48,173 +49,120 @@ An AI-powered smart contract vulnerability detection tool that:
 
 ### Backend
 
-| Technology | Purpose | Why Chosen |
-|------------|---------|------------|
-| Python 3.11+ | Backend language | Great AI/ML ecosystem, fast development |
-| FastAPI | Web framework | Modern, async, auto-documentation |
-| SQLAlchemy | ORM | Database abstraction, easy migrations |
-| SQLite | Database | Simple, no setup, file-based |
-| Pydantic | Validation | Type safety, automatic validation |
-| Uvicorn | ASGI Server | High performance, async support |
+| Technology | Purpose | Status |
+|------------|---------|--------|
+| Python 3.11+ | Backend language | ✅ Active |
+| FastAPI | Web framework | ✅ Active |
+| SQLAlchemy | ORM | ✅ Active |
+| SQLite | Database | ✅ Active |
+| Pydantic | Validation | ✅ Active |
+| Uvicorn | ASGI Server | ✅ Active |
 
 ### AI/ML
 
-| Technology | Purpose | Why Chosen |
-|------------|---------|------------|
-| Ollama | Local AI runtime | Privacy, no API costs, offline capable |
-| DeepSeek Coder V2 | Vulnerability detection | Excellent code understanding |
-| Llama 3.1 8B | Explanations | Good at natural language |
+| Technology | Purpose | Status |
+|------------|---------|--------|
+| Google Gemini 2.5 Flash | Vulnerability detection + explanation | ✅ Active |
+| ~~Ollama~~ | ~~Local AI runtime~~ | ❌ Replaced by Gemini |
+| ~~DeepSeek Coder V2~~ | ~~Vulnerability detection~~ | ❌ Replaced by Gemini |
+| ~~Llama 3.1 8B~~ | ~~Explanations~~ | ❌ Replaced by Gemini |
 
-### Frontend (To Be Built)
+### Frontend
 
-| Technology | Purpose | Why Chosen |
-|------------|---------|------------|
-| React 18 | UI framework | Industry standard, large ecosystem |
-| TypeScript | Type safety | Fewer bugs, better DX |
-| Vite | Build tool | Fast development, modern |
-| Tailwind CSS | Styling | Rapid UI development |
-| Zustand | State management | Simple, lightweight |
-| React Query | Data fetching | Caching, loading states |
-
-### DevOps & Tools
-
-| Technology | Purpose | Why Chosen |
-|------------|---------|------------|
-| Docker | Containerization | Consistent environments |
-| Git/GitHub | Version control | Industry standard |
-| GitHub Actions | CI/CD | Free, integrated |
+| Technology | Purpose | Status |
+|------------|---------|--------|
+| React 18 | UI framework | ✅ Active |
+| TypeScript | Type safety | ✅ Active |
+| Vite | Build tool | ✅ Active |
+| Tailwind CSS | Styling | ✅ Active |
+| Radix UI | Component primitives | ✅ Active |
+| React Context API | State management | ✅ Active |
+| Axios | HTTP client | ✅ Active |
+| Monaco Editor | Code editor | ✅ Active |
+| Framer Motion | Animations | ✅ Active |
+| Lucide React | Icons | ✅ Active |
 
 ### Blockchain Tools
 
-| Technology | Purpose | Why Chosen |
-|------------|---------|------------|
-| Foundry | Testing framework | Fast, modern, Solidity-native |
-| Alchemy API | Blockchain RPC | Reliable, free tier |
+| Technology | Purpose | Status |
+|------------|---------|--------|
+| Alchemy API | Contract verification via RPC | ✅ Active |
+| Etherscan APIs | Fetch verified source code | ✅ Active |
+| Foundry | Testing framework | 🟡 Structure only |
+
+### DevOps & Tools
+
+| Technology | Purpose | Status |
+|------------|---------|--------|
+| Docker | Containerization | ✅ Active |
+| Git/GitHub | Version control | ✅ Active |
+| GitHub Actions | CI/CD | ✅ Active |
 
 ---
 
 ## 🏗️ Architecture
 
-### High-Level Architecture
+### Current Architecture (Active)
+
+```
 ┌─────────────────────────────────────────────────────────────────┐
-│                         FRONTEND                                 │
-│                    (React + TypeScript)                          │
-│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐        │
-│  │  Upload  │  │ Analysis │  │  Report  │  │ History  │        │
-│  │   Page   │  │   Page   │  │   Page   │  │   Page   │        │
-│  └──────────┘  └──────────┘  └──────────┘  └──────────┘        │
+│                         FRONTEND                                │
+│              (React + TypeScript + Vite + Tailwind)              │
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐                     │
+│  │ Scanner  │  │  Stats   │  │ History  │                      │
+│  │   Page   │  │   Page   │  │   Page   │                      │
+│  │ (Active) │  │ (Active) │  │(Placeholder)                    │
+│  └──────────┘  └──────────┘  └──────────┘                      │
 └─────────────────────────────────────────────────────────────────┘
-│
-│ HTTP/REST API
-▼
+                        │
+                        │ HTTP/REST API (via Vite proxy)
+                        ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │                         BACKEND                                  │
-│                    (FastAPI + Python)                            │
-│  ┌──────────────────────────────────────────────────────────┐  │
-│  │                      API Layer                            │  │
-│  │  /analyze/code  /contracts  /reports  /stats  /health    │  │
-│  └──────────────────────────────────────────────────────────┘  │
-│                              │                                   │
-│  ┌──────────────────────────────────────────────────────────┐  │
-│  │                   Service Layer                           │  │
-│  │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐      │  │
-│  │  │ AI Analyzer │  │ Orchestrator│  │Report Builder│      │  │
-│  │  └─────────────┘  └─────────────┘  └─────────────┘      │  │
-│  └──────────────────────────────────────────────────────────┘  │
-│                              │                                   │
-│  ┌──────────────────────────────────────────────────────────┐  │
-│  │                   Data Layer                              │  │
-│  │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐      │  │
-│  │  │   Models    │  │    CRUD     │  │   Schemas   │      │  │
-│  │  └─────────────┘  └─────────────┘  └─────────────┘      │  │
-│  └──────────────────────────────────────────────────────────┘  │
+│                    (FastAPI — main.py)                            │
+│  ┌──────────────────────────────────────────────────────────┐   │
+│  │                      API Endpoints                        │   │
+│  │  POST /api/analyze       GET /api/stats                   │   │
+│  │  POST /api/fetch-contract GET /api/history                │   │
+│  │  GET /api/contract-info   GET /api/health                 │   │
+│  └──────────────────────────────────────────────────────────┘   │
+│                              │                                    │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐          │
+│  │ scanner.py   │  │ alchemy_     │  │  schemas.py  │          │
+│  │ (Orchestrator│  │ service.py   │  │ (Validation) │          │
+│  │  → Gemini)   │  │ (Blockchain) │  │              │          │
+│  └──────────────┘  └──────────────┘  └──────────────┘          │
 └─────────────────────────────────────────────────────────────────┘
-│                                      │
-▼                                      ▼
-┌──────────────────┐                  ┌──────────────────┐
-│     SQLite       │                  │     Ollama       │
-│    Database      │                  │   (Local AI)     │
-│                  │                  │                  │
-│ - Contracts      │                  │ - DeepSeek Coder │
-│ - Analyses       │                  │ - Llama 3.1      │
-│ - Vulnerabilities│                  │                  │
-└──────────────────┘                  └──────────────────┘
+         │                    │                    │
+         ▼                    ▼                    ▼
+┌──────────────┐   ┌──────────────┐   ┌──────────────┐
+│   Gemini     │   │   Alchemy    │   │    SQLite     │
+│    API       │   │  + Etherscan │   │   Database    │
+│              │   │    APIs      │   │              │
+│ - Detection  │   │ - Verify Addr│   │ - Contracts  │
+│ - Explanation│   │ - Fetch Code │   │ - Analyses   │
+│ - Fix Gen    │   │ - Get Balance│   │ - Vulns      │
+└──────────────┘   └──────────────┘   └──────────────┘
+```
 
-shell
-Copy code
-
-### Request Flow
-
-User uploads contract
-│
-▼
-┌───────────────────┐
-│ POST /analyze/code│
-└───────────────────┘
-│
-▼
-┌───────────────────┐
-│ Validate Input    │ ── Invalid ──> Return 400 Error
-└───────────────────┘
-│ Valid
-▼
-┌───────────────────┐
-│ Save Contract     │
-│ to Database       │
-└───────────────────┘
-│
-▼
-┌───────────────────┐
-│ Create Analysis   │
-│ Record (PENDING)  │
-└───────────────────┘
-│
-▼
-┌───────────────────┐
-│ Call DeepSeek     │
-│ for Detection     │ ── Error ──> Mark FAILED, Return 500
-└───────────────────┘
-│ Success
-▼
-┌───────────────────┐
-│ Parse Detected    │
-│ Vulnerabilities   │
-└───────────────────┘
-│
-▼
-┌───────────────────┐
-│ For Each Vuln:    │
-│ Call Llama for    │
-│ Explanation       │
-└───────────────────┘
-│
-▼
-┌───────────────────┐
-│ Save All Results  │
-│ Mark COMPLETED    │
-└───────────────────┘
-│
-▼
-┌───────────────────┐
-│ Return Analysis   │
-│ Results to User   │
-└───────────────────┘
 ---
 
 ## ✨ Features
 
-### Core Features (MVP)
+### Core Features
 
 | Feature | Description | Status |
 |---------|-------------|--------|
-| Code Upload | Submit Solidity code for analysis | ✅ Done |
-| AI Detection | Use DeepSeek to find vulnerabilities | ✅ Done |
-| AI Explanation | Use Llama to explain issues | ✅ Done |
-| Fix Suggestions | Provide corrected code | ✅ Done |
-| JSON Reports | Download results as JSON | ✅ Done |
-| Analysis History | View past analyses | ✅ Done |
-| Statistics | Overall app statistics | ✅ Done |
+| Code Upload | Submit Solidity code via Monaco editor | ✅ Done |
+| AI Detection | Use Gemini 2.5 Flash to find vulnerabilities | ✅ Done |
+| AI Explanation | Gemini generates detailed explanations | ✅ Done |
+| Fix Suggestions | Provide corrected code snippets | ✅ Done |
+| Fetch by Address | Fetch verified source from blockchain | ✅ Done |
+| Multi-Network | 6 networks supported | ✅ Done |
+| Analysis History | Backend API stores and serves history | ✅ Backend Done |
+| Statistics | Overall app statistics dashboard | ✅ Done |
 | Health Check | Service health monitoring | ✅ Done |
+| Context API State | Scanner state shared across components | ✅ Done |
 
 ### Vulnerability Types Detected
 
@@ -225,395 +173,352 @@ User uploads contract
 | Access Control | Missing/improper access restrictions | High |
 | Unchecked Calls | Low-level calls without checks | Medium |
 | Frontrunning | MEV/sandwich attack vulnerable | Medium |
+| Logic Bugs | Business logic vulnerabilities | Varies |
+| Gas Optimization | Expensive operations | Low/Info |
 
-### Planned Features
+### Features Remaining
 
-| Feature | Description | Priority |
-|---------|-------------|----------|
-| Address Analysis | Fetch code from blockchain | High |
-| PDF Reports | Generate PDF reports | Medium |
-| Foundry Verification | Verify vulns with tests | Medium |
-| Frontend UI | React-based interface | High |
-| Authentication | User accounts | Low |
-| Rate Limiting | Prevent abuse | Medium |
+| Feature | Description | Priority | Effort |
+|---------|-------------|----------|--------|
+| History Page UI | Wire up frontend to existing API | ✅ Done | Low |
+| `.env.example` / Security | Protect exposed API keys | ✅ Done | Low |
+| README Documentation | Setup instructions, API docs | ✅ Done | Low |
+| Docker Setup | Populate Dockerfiles for deployment | ✅ Done | Low |
+| Export (JSON/PDF) | Download analysis reports | ✅ Done | Medium |
+| Dead Code Cleanup | Remove unused `app/` module or migrate | ✅ Done | Medium |
+| CI/CD Pipelines | Populate GitHub Actions workflows | ✅ Done | Medium |
+| Slither Integration | Professional static analysis | 🟢 Low | High |
+| Mythril Integration | Symbolic execution analysis | 🟢 Low | High |
+| Foundry Integration | Compile + test contracts | 🟢 Low | High |
+| WebSocket Progress | Real-time scan progress updates | 🟢 Low | Medium |
 
 ---
 
 ## 🗄️ Database Schema
 
-### Entity Relationship Diagram
-┌─────────────────┐       ┌─────────────────┐       ┌─────────────────┐
-│    Contract     │       │    Analysis     │       │ Vulnerability   │
-├─────────────────┤       ├─────────────────┤       ├─────────────────┤
-│ id (PK)         │───┐   │ id (PK)         │───┐   │ id (PK)         │
-│ name            │   │   │ contract_id(FK) │◄──┘   │ analysis_id(FK) │◄──┘
-│ code            │   │   │ status          │       │ type            │
-│ code_hash       │   │   │ overall_risk    │       │ severity        │
-│ network         │   │   │ risk_score      │       │ confidence      │
-│ address         │   └──►│ summary         │       │ line_start      │
-│ verified        │       │ scan_duration   │       │ line_end        │
-│ compiler_version│       │ total_lines     │       │ function_name   │
-│ created_at      │       │ error_message   │       │ code_snippet    │
-│ updated_at      │       │ created_at      │       │ description     │
-└─────────────────┘       │ completed_at    │       │ impact          │
-└─────────────────┘       │ recommendation  │
-│ fixed_code      │
-│ created_at      │
-└─────────────────┘
-
-Relationships:
-
-Contract (1) ──────< Analysis (Many)
-Analysis (1) ──────< Vulnerability (Many)
-### Table Details
+### Tables (Current Active Schema)
 
 #### contracts
-
 | Column | Type | Constraints | Description |
 |--------|------|-------------|-------------|
-| id | VARCHAR(36) | PK | UUID |
+| id | Integer | PK, Auto | Primary key |
 | name | VARCHAR(255) | NOT NULL | Contract name |
-| code | TEXT | NOT NULL | Solidity source code |
-| code_hash | VARCHAR(64) | NOT NULL, INDEX | SHA256 hash |
-| network | ENUM | DEFAULT 'polygon' | Blockchain network |
-| address | VARCHAR(42) | NULLABLE, INDEX | On-chain address |
-| verified | BOOLEAN | DEFAULT FALSE | Verified on explorer |
-| compiler_version | VARCHAR(20) | NULLABLE | Solc version |
+| source_code | TEXT | NOT NULL | Solidity source code |
+| network | VARCHAR(50) | DEFAULT 'ethereum' | Blockchain network |
+| address | VARCHAR(42) | NULLABLE | On-chain address |
 | created_at | DATETIME | DEFAULT NOW | Creation time |
-| updated_at | DATETIME | ON UPDATE | Last update time |
 
 #### analyses
-
 | Column | Type | Constraints | Description |
 |--------|------|-------------|-------------|
-| id | VARCHAR(36) | PK | UUID |
-| contract_id | VARCHAR(36) | FK | Reference to contract |
-| status | ENUM | DEFAULT 'pending' | Analysis status |
-| overall_risk | ENUM | NULLABLE | Highest severity found |
-| risk_score | INTEGER | NULLABLE | 0-100 score |
+| id | Integer | PK, Auto | Primary key |
+| contract_id | Integer | FK → contracts.id | Reference to contract |
+| risk_score | Integer | DEFAULT 0 | 0-100 score |
 | summary | TEXT | NULLABLE | AI-generated summary |
-| scan_duration_ms | INTEGER | NULLABLE | Time taken |
-| total_lines | INTEGER | NULLABLE | Lines of code |
-| vulnerable_lines | INTEGER | NULLABLE | Affected lines |
-| functions_analyzed | INTEGER | NULLABLE | Function count |
-| detection_model | VARCHAR(50) | DEFAULT | Model used |
-| explanation_model | VARCHAR(50) | DEFAULT | Model used |
-| error_message | TEXT | NULLABLE | If failed |
+| scan_duration_ms | Integer | NULLABLE | Time taken |
 | created_at | DATETIME | DEFAULT NOW | Start time |
-| completed_at | DATETIME | NULLABLE | End time |
 
 #### vulnerabilities
-
 | Column | Type | Constraints | Description |
 |--------|------|-------------|-------------|
-| id | VARCHAR(36) | PK | UUID |
-| analysis_id | VARCHAR(36) | FK | Reference to analysis |
-| type | ENUM | NOT NULL | Vulnerability type |
-| severity | ENUM | NOT NULL | Severity level |
-| confidence | ENUM | DEFAULT 'medium' | AI confidence |
-| verified | BOOLEAN | DEFAULT FALSE | Foundry verified |
-| line_start | INTEGER | NULLABLE | Start line |
-| line_end | INTEGER | NULLABLE | End line |
-| function_name | VARCHAR(255) | NULLABLE | Affected function |
-| code_snippet | TEXT | NULLABLE | Vulnerable code |
-| description | TEXT | NOT NULL | What's wrong |
+| id | Integer | PK, Auto | Primary key |
+| analysis_id | Integer | FK → analyses.id | Reference to analysis |
+| title | VARCHAR(255) | NOT NULL | Vulnerability name |
+| severity | VARCHAR(20) | NOT NULL | critical/high/medium/low/info |
+| category | VARCHAR(100) | NULLABLE | Vulnerability category |
+| description | TEXT | NULLABLE | What's wrong |
 | impact | TEXT | NULLABLE | Why dangerous |
 | recommendation | TEXT | NULLABLE | How to fix |
+| vulnerable_code | TEXT | NULLABLE | Affected code snippet |
 | fixed_code | TEXT | NULLABLE | Corrected code |
-| gas_estimate | VARCHAR(50) | NULLABLE | Gas impact |
-| references | JSON | NULLABLE | Resource links |
-| test_code | TEXT | NULLABLE | Foundry test |
-| test_output | TEXT | NULLABLE | Test result |
+| line_start | Integer | NULLABLE | Start line |
+| line_end | Integer | NULLABLE | End line |
+| function_name | VARCHAR(255) | NULLABLE | Affected function |
+| confidence | VARCHAR(20) | DEFAULT 'medium' | AI confidence |
 | created_at | DATETIME | DEFAULT NOW | Creation time |
 
 ---
 
-## 🔌 API Endpoints
+## 🔌 API Endpoints (Current Active)
 
 ### Health & Status
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | /api/health | Full health check |
-| GET | /api/health/ping | Simple ping |
+| Method | Endpoint | Description | Status |
+|--------|----------|-------------|--------|
+| GET | `/` | Root info | ✅ Working |
+| GET | `/api/health` | Full health check | ✅ Working |
 
 ### Analysis
+| Method | Endpoint | Description | Status |
+|--------|----------|-------------|--------|
+| POST | `/api/analyze` | Analyze by source code | ✅ Working |
+| POST | `/api/fetch-contract` | Fetch contract from blockchain | ✅ Working |
+| GET | `/api/contract-info/{network}/{address}` | Get contract info | ✅ Working |
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | /api/analyze/code | Analyze by source code |
-| POST | /api/analyze/address | Analyze by address (planned) |
-| GET | /api/analyze/{id} | Get analysis results |
-| GET | /api/analyze/{id}/status | Get analysis progress |
+### History & Stats
+| Method | Endpoint | Description | Status |
+|--------|----------|-------------|--------|
+| GET | `/api/history` | Get analysis history (paginated) | ✅ Working |
+| GET | `/api/stats` | Overall statistics | ✅ Working |
 
-### Contracts
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | /api/contracts | List all contracts |
-| GET | /api/contracts/{id} | Get contract details |
-| DELETE | /api/contracts/{id} | Delete contract |
-| GET | /api/contracts/{id}/analyses | Get contract's analyses |
-
-### Reports
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | /api/reports/{id}/json | Download JSON report |
-| GET | /api/reports/{id}/pdf | Download PDF report (planned) |
-
-### Statistics
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | /api/stats | Overall statistics |
-| GET | /api/stats/recent | Recent activity |
+### Reports (Planned)
+| Method | Endpoint | Description | Status |
+|--------|----------|-------------|--------|
+| GET | `/api/reports/{id}/json` | Download JSON report | ✅ Working |
+| GET | `/api/reports/{id}/pdf` | Download PDF report | ✅ Working |
 
 ---
 
 ## 🤖 AI Integration
 
-### Ollama Setup
+### Current: Google Gemini 2.5 Flash
 
-Ollama runs locally and serves AI models via REST API.
+- **API**: Google Generative AI SDK (`google.generativeai`)
+- **Model**: `gemini-2.5-flash`
+- **Temperature**: 0.1 (low for consistent output)
+- **Max Output Tokens**: 8192
+- **Response Format**: JSON with vulnerabilities array, risk_score, summary
 
-**Base URL:** `http://localhost:11434`
+### Prompt Structure
 
-**Endpoints Used:**
-- `GET /api/tags` - List available models
-- `POST /api/chat` - Chat completion
+The prompt instructs Gemini to act as a smart contract security expert and return:
+- `risk_score` (0-100)
+- `summary` (brief security status)
+- `vulnerabilities[]` with: title, severity, category, description, impact, recommendation, vulnerable_code, fixed_code, line_start, line_end, function_name, confidence
 
-### Models Used
+---
 
-#### DeepSeek Coder V2 (Detection)
+## 📁 File Structure (Actual)
 
-- **Purpose:** Find vulnerabilities in code
-- **Size:** ~8.9 GB
-- **Strengths:** Excellent code understanding, follows instructions well
-- **Temperature:** 0.1 (low for consistent output)
-
-#### Llama 3.1 8B (Explanation)
-
-- **Purpose:** Generate human-readable explanations
-- **Size:** ~4.9 GB
-- **Strengths:** Natural language, clear explanations
-- **Temperature:** 0.1 (low for consistent output)
-
-### Prompt Engineering
-
-#### Detection Prompt Structure
-SYSTEM: You are an expert smart contract security auditor...
-Focus on: reentrancy, overflow, access control...
-Respond with JSON only.
-
-USER:   Analyze this contract:
-[CONTRACT CODE]
-Return JSON format:
-    {
-      "vulnerabilities": [...],
-      "summary": "...",
-      "total_issues": N
-    }
-    #### Explanation Prompt Structure
-    SYSTEM: You are a security expert who explains vulnerabilities...
-
-USER:   Explain this vulnerability:
-Type: [TYPE]
-Severity: [SEVERITY]
-Code: [CODE]
-Return JSON format:
-    {
-      "description": "...",
-      "impact": "...",
-      "recommendation": "...",
-      "fixed_code": "..."
-    }
-    ---
-
-## 📁 File Structure
+```
 Smart-Contract-Scanner/
 ├── backend/
-│   ├── app/
-│   │   ├── api/
-│   │   │   ├── routes/
-│   │   │   │   ├── init.py
-│   │   │   │   ├── analyze.py      # Analysis endpoints
-│   │   │   │   ├── contracts.py    # Contract CRUD
-│   │   │   │   ├── health.py       # Health checks
-│   │   │   │   ├── reports.py      # Report generation
-│   │   │   │   └── stats.py        # Statistics
-│   │   │   ├── init.py
-│   │   │   └── deps.py             # Dependencies
-│   │   ├── core/
-│   │   │   ├── init.py
-│   │   │   ├── config.py           # App configuration
-│   │   │   ├── exceptions.py       # Custom exceptions
-│   │   │   └── logging.py          # Logging setup
-│   │   ├── db/
-│   │   │   ├── init.py
-│   │   │   ├── database.py         # DB connection
-│   │   │   ├── models.py           # SQLAlchemy models
-│   │   │   └── crud.py             # CRUD operations
-│   │   ├── prompts/
-│   │   │   ├── init.py
-│   │   │   ├── detection.py        # Detection prompts
-│   │   │   └── explanation.py      # Explanation prompts
-│   │   ├── schemas/
-│   │   │   ├── init.py
-│   │   │   ├── analysis.py         # Analysis schemas
-│   │   │   ├── common.py           # Common schemas
-│   │   │   ├── contract.py         # Contract schemas
-│   │   │   └── vulnerability.py    # Vulnerability schemas
-│   │   ├── services/
-│   │   │   ├── init.py
-│   │   │   ├── ai_analyzer.py      # Ollama integration
-│   │   │   └── analysis_orchestrator.py  # Main logic
-│   │   └── init.py
-│   ├── tests/
-│   │   └── ...                     # Test files
-│   ├── venv/                       # Virtual environment
-│   ├── main.py                     # App entry point
-│   ├── requirements.txt            # Python dependencies
-│   └── Dockerfile
-├── frontend/                       # React frontend (to be built)
+│   ├── main.py                     # ← ACTIVE entry point
+│   ├── scanner.py                  # ← ACTIVE AI orchestrator
+│   ├── models.py                   # ← ACTIVE SQLAlchemy models
+│   ├── schemas.py                  # ← ACTIVE Pydantic schemas
+│   ├── database.py                 # ← ACTIVE DB connection
+│   ├── services/
+│   │   ├── alchemy_service.py      # ← ACTIVE blockchain integration
+│   │   └── gemini_service.py       # ← ACTIVE Gemini AI service
+│   ├── app/                        # ⚠️ LEGACY — Ollama-based code, NOT USED
+│   │   ├── api/routes/             # (analyze, contracts, health, reports, stats)
+│   │   ├── core/                   # (config, exceptions, logging)
+│   │   ├── db/                     # (database, models, crud)
+│   │   ├── prompts/                # (detection, explanation)
+│   │   ├── schemas/                # (analysis, common, contract, vulnerability)
+│   │   ├── services/               # (ai_analyzer, orchestrator — EMPTY STUBS)
+│   │   └── utils/
+│   ├── tests/                      # Test structure (uses app/ module)
+│   ├── .env                        # ⚠️ Contains actual API keys
+│   ├── requirements.txt
+│   ├── Dockerfile                  # ❌ EMPTY
+│   └── Dockerfile.dev              # ❌ EMPTY
+├── frontend/
 │   ├── src/
-│   │   ├── components/
 │   │   ├── pages/
-│   │   ├── hooks/
-│   │   ├── services/
-│   │   └── ...
+│   │   │   ├── Scanner.tsx         # ✅ Fully functional
+│   │   │   ├── Stats.tsx           # ✅ Fully functional
+│   │   │   └── History.tsx         # ✅ Fully functional
+│   │   ├── components/             # Header, Loading, SeverityBadge, VulnerabilityCard, ui/
+│   │   ├── context/ScannerContext.tsx # ✅ State management
+│   │   ├── services/api.ts         # ✅ All API functions
+│   │   ├── types/index.ts          # ⚠️ Unused (old types)
+│   │   ├── hooks/useLocalStorage.ts
+│   │   └── lib/utils.ts
 │   ├── package.json
-│   └── ...
-├── contracts/                      # Foundry project
-│   ├── src/
-│   │   └── examples/              # Vulnerable examples
-│   ├── test/
-│   └── foundry.toml
-├── docs/
-│   ├── ARCHITECTURE.md
-│   ├── API.md
-│   └── DEPLOYMENT.md
-├── .github/
-│   └── workflows/                 # CI/CD pipelines
-├── IMPLEMENTATION_PLAN.md         # This file
-├── README.md
-└── docker-compose.yml
+│   ├── tailwind.config.js
+│   └── vite.config.ts
+├── contracts/                      # Foundry project (structure only)
+├── docs/                           # API.md, ARCHITECTURE.md, DEPLOYMENT.md, CONTRIBUTING.md
+├── .github/workflows/              # ✅ ci.yml, deploy.yml, security.yml — Active
+├── scripts/                        # Shell scripts (setup, pull-models, seed-db, generate-tests)
+├── IMPLEMENTATION_PLAN.md          # ← This file
+├── README.md                       # ✅ Complete documentation
+├── .env.example                    # ✅ Template with instructions
+├── Makefile                        # ✅ Dev/Docker/Clean targets
+├── docker-compose.yml              # ✅ Production Docker setup
+└── docker-compose.dev.yml          # ✅ Dev Docker setup
+```
+
 ---
 
 ## 📅 Development Phases
 
-### Phase 1: Backend Foundation ✅
-
-**Duration:** Week 1-2
-
-**Tasks:**
+### Phase 1: Backend Foundation ✅ COMPLETED
 - [x] Project structure setup
-- [x] Database models
-- [x] API schemas
-- [x] Basic API routes
-- [x] FastAPI configuration
+- [x] Database models (Contract, Analysis, Vulnerability)
+- [x] API schemas (Pydantic)
+- [x] Basic API routes (analyze, health, stats, history)
+- [x] FastAPI configuration with CORS
 - [x] Health check endpoints
 
-**Deliverables:**
-- Working API server
-- Database schema
-- API documentation at /docs
+### Phase 2: AI Integration ✅ COMPLETED (Modified)
+- [x] ~~Ollama setup~~ → Replaced with Gemini API
+- [x] ~~Model download~~ → Using cloud API
+- [x] Detection prompts (single Gemini prompt)
+- [x] ~~Explanation prompts~~ → Combined in single Gemini call
+- [x] AI service class (`gemini_service.py`)
+- [x] Scanner orchestrator (`scanner.py`)
+
+### Phase 3: Frontend Development ✅ COMPLETED
+- [x] React + TypeScript + Vite project setup
+- [x] Component library (Radix UI + custom components)
+- [x] Scanner page (code paste + address fetch)
+- [x] Statistics page
+- [x] Responsive design with Tailwind
+- [x] Monaco code editor integration
+- [x] Context API state management
+- [x] History page (functional with search, pagination, error handling)
+- [x] Export/download results from UI (JSON + PDF)
+
+### Phase 4: Blockchain Integration ✅ COMPLETED
+- [x] Alchemy API integration
+- [x] Etherscan-compatible APIs for source code
+- [x] Multi-network support (6 networks)
+- [x] Contract address validation
+- [x] Frontend "Fetch by Address" tab
+
+### Phase 5: Remaining Features ✅ COMPLETED
+- [x] Functional History page UI
+- [x] PDF report generation
+- [x] JSON export from UI
+- [x] `.env.example` and security fix
+- [x] README documentation
+- [x] Docker setup (Dockerfiles + compose)
+- [x] CI/CD pipelines
+- [x] Dead code cleanup
+
+### Phase 6: AI Security Chatbot 📋 PLANNED — HIGH IMPACT
+
+A context-aware AI assistant that understands the current contract and its vulnerabilities. Uses Gemini 2.5 Flash free tier.
+
+#### Backend
+- [ ] `POST /api/chat` — Accepts message + optional `analysis_id`, returns streamed AI response
+- [ ] `GET /api/chat/history/{analysis_id}` — Retrieve past chat messages for an analysis
+- [ ] `chat_service.py` — Builds context from contract code + vulnerabilities + conversation history
+- [ ] `ChatMessage` + `ChatSession` SQLAlchemy models (session_id, role, content, analysis_id, created_at)
+- [ ] System prompt engineering: "You are a Solidity security expert. The user has just scanned a contract. Here is the contract code and the vulnerabilities found. Answer questions, explain vulnerabilities in depth, suggest secure patterns, and help write fixes."
+- [ ] Streaming responses via `StreamingResponse` + Server-Sent Events (SSE)
+- [ ] Context window management — truncate older messages when approaching Gemini's token limit
+
+#### Frontend
+- [ ] `ChatPanel.tsx` — Slide-out drawer (right side) with chat interface
+- [ ] Floating chat bubble button (bottom-right, glowing pulse animation)
+- [ ] Message bubbles with markdown rendering (using `react-markdown`)
+- [ ] Syntax-highlighted code blocks inside chat (Solidity, JSON)
+- [ ] Typing indicator with animated dots
+- [ ] "Ask about this vulnerability" quick-action button on each `VulnerabilityCard`
+- [ ] Pre-built quick prompts: "Explain this vulnerability", "How do I fix this?", "Is this a false positive?", "Write a test for this", "What's the attack vector?"
+- [ ] Chat history persistence per analysis session
+- [ ] Auto-scroll to latest message, manual scroll lock
+- [ ] Mobile-responsive: full-screen on small screens
+
+#### Conversation Context Architecture
+```
+System Prompt (static)
+  + Contract Source Code (from current analysis)
+  + Vulnerability Report JSON (from current analysis)
+  + Conversation History (last N messages)
+  → Gemini 2.5 Flash → Streamed response
+```
 
 ---
 
-### Phase 2: AI Integration ✅
+### Phase 7: Professional UX Overhaul 📋 PLANNED
 
-**Duration:** Week 2-3
+Transform the UI from good to truly state-of-the-art.
 
-**Tasks:**
-- [x] Ollama setup
-- [x] Model download (DeepSeek, Llama)
-- [x] Detection prompts
-- [x] Explanation prompts
-- [x] AI service class
-- [x] Analysis orchestrator
-- [ ] Error handling refinement
+#### Dedicated Analysis Detail Page
+- [ ] `/analysis/:id` route — Full-page view of a single analysis
+- [ ] Side-by-side code diff viewer (vulnerable code vs. fixed code) using Monaco diff editor
+- [ ] Interactive vulnerability map — Click vulnerability to highlight its location in the code
+- [ ] Line-gutter decorations in Monaco showing vulnerability markers (red/yellow/blue dots)
+- [ ] Severity breakdown donut chart (using lightweight SVG, no chart library needed)
+- [ ] Deep-link sharing — Copy analysis URL to share results
 
-**Deliverables:**
-- Working vulnerability detection
-- AI-generated explanations
-- Fix recommendations
+#### Dashboard Homepage (New Landing)
+- [ ] `/dashboard` route (make this the default, move Scanner to `/scan`)
+- [ ] Recent scans widget (last 5 analyses with risk scores)
+- [ ] Quick-stats banner (contracts scanned today, highest risk found, avg score)
+- [ ] "Quick Scan" button that jumps to Scanner page
+- [ ] Animated counter for total lifetime scans
+- [ ] Activity sparkline chart (scans per day, last 7 days — pure SVG, no dependencies)
 
----
+#### UI Polish
+- [ ] Toast notifications system (scan complete, export success, errors) using Radix Toast
+- [ ] Keyboard shortcuts: `Ctrl+Enter` = analyze, `Ctrl+K` = open chatbot, `Esc` = close panels
+- [ ] Loading skeleton screens instead of spinners (scan results, history cards)
+- [ ] Animated risk gauge (circular SVG animation on results load)
+- [ ] Smooth page transition animations with Framer Motion `AnimatePresence`
+- [ ] Code editor line highlighting for vulnerable lines (red underline decorations)
+- [ ] "Copy to clipboard" buttons on code snippets and vulnerability details
+- [ ] Responsive mobile layout — collapsible sidebar, stacked panels on small screens
 
-### Phase 3: Frontend Development 🔄
-
-**Duration:** Week 3-5
-
-**Tasks:**
-- [ ] React project setup
-- [ ] Component library (UI)
-- [ ] Upload page
-- [ ] Analysis results page
-- [ ] History page
-- [ ] Report viewer
-- [ ] Responsive design
-
-**Deliverables:**
-- Complete web interface
-- User-friendly experience
-- Mobile-responsive design
+#### ERC Standard Compliance Checker (Bonus UI Section)
+- [ ] Dropdown: select ERC standard (ERC-20, ERC-721, ERC-1155, ERC-4626)
+- [ ] Display compliance checklist — which required functions are present/missing
+- [ ] Gemini prompt specifically checks interface compliance + common standard pitfalls
 
 ---
 
-### Phase 4: Advanced Features 📋
+### Phase 8: Backend Hardening & Advanced Analysis 📋 PLANNED
 
-**Duration:** Week 5-6
+#### Rate Limiting & API Security
+- [ ] Configure `slowapi` rate limiter (already installed): 10 analysis/min per IP, 60 chat/min
+- [ ] Add security headers middleware (X-Content-Type-Options, X-Frame-Options, CSP)
+- [ ] CORS: make origins configurable via environment variable
+- [ ] Request ID tracking — UUID per request, included in all logs and responses
+- [ ] Structured JSON logging with `structlog` or Python's built-in logging
 
-**Tasks:**
-- [ ] Address-based analysis (Alchemy)
-- [ ] PDF report generation
-- [ ] Foundry verification
-- [ ] Rate limiting
-- [ ] Caching
+#### Analysis Engine Improvements
+- [ ] Multi-file contract support — Parse Etherscan's multi-file JSON, analyze each file individually, then synthesize
+- [ ] Analysis caching — SHA-256 hash of contract code, skip re-analysis if exact same code was scanned before
+- [ ] Severity statistics per analysis — `{critical: N, high: N, medium: N, low: N, info: N}` in API response
+- [ ] Re-scan endpoint — `POST /api/analyze/{id}/rescan` to re-analyze with latest AI model
+- [ ] Comparison endpoint — `POST /api/compare` accepts two contract codes, returns diff + vulnerability delta
 
-**Deliverables:**
-- Blockchain integration
-- Professional reports
-- Attack verification
+#### Gas Optimization Analysis Mode
+- [ ] Separate Gemini prompt focused purely on gas optimization
+- [ ] Toggle in frontend: "Security Scan" vs "Gas Optimization" mode
+- [ ] Gas-specific recommendations: storage packing, calldata optimization, loop gas, SSTORE patterns
 
----
-
-### Phase 5: Testing & Polish 📋
-
-**Duration:** Week 6-7
-
-**Tasks:**
-- [ ] Unit tests
-- [ ] Integration tests
-- [ ] E2E tests
-- [ ] Performance optimization
-- [ ] Security audit
-- [ ] Documentation
-
-**Deliverables:**
-- Test coverage > 80%
-- Performance benchmarks
-- Complete documentation
+#### Database & Performance
+- [ ] Database migration support with Alembic
+- [ ] Indexes on `analyses.created_at`, `contracts.address`, `vulnerabilities.severity`
+- [ ] Pagination with cursor-based approach (more efficient than offset for large datasets)
+- [ ] Background task processing for analysis (return job ID immediately, poll for results)
 
 ---
 
-### Phase 6: Deployment 📋
+### Phase 9: Production Readiness 📋 PLANNED
 
-**Duration:** Week 7-8
+#### Testing
+- [ ] Backend unit tests: API endpoint tests with `httpx.AsyncClient` + mock Gemini
+- [ ] Backend integration tests: full analyze flow with test database
+- [ ] Frontend component tests with Vitest + React Testing Library
+- [ ] E2E smoke tests with Playwright (scan flow, history page, export)
+- [ ] Test fixtures: sample vulnerable contracts for consistent testing
 
-**Tasks:**
-- [ ] Docker configuration
-- [ ] CI/CD pipeline
-- [ ] Cloud deployment
-- [ ] Domain setup
-- [ ] SSL certificate
-- [ ] Monitoring setup
+#### Observability
+- [ ] Health check improvements: include DB row counts, last scan time, Gemini latency
+- [ ] `/api/metrics` endpoint — Prometheus-compatible metrics (request count, latency histogram, error rate)
+- [ ] Request duration logging on every endpoint
+- [ ] Error tracking: catch-all exception handler with structured error responses
 
-**Deliverables:**
-- Live production URL
-- Automated deployments
-- Monitoring dashboard
+#### DevOps
+- [ ] Multi-stage Docker builds with dependency caching (reduce rebuild time)
+- [ ] `.dockerignore` files for backend and frontend
+- [ ] Docker health check improvements (readiness vs. liveness)
+- [ ] Environment-based config: `CONFIG_ENV=production|development|test`
+- [ ] Pre-commit hooks: ruff + black + eslint auto-fix
+- [ ] Conventional commits with commitlint
+- [ ] CHANGELOG.md auto-generation
+
+#### Documentation
+- [ ] Interactive API docs enhancement (FastAPI's built-in Swagger UI is already live at `/docs`)
+- [ ] Architecture diagram (Mermaid) embedded in README
+- [ ] Contributing guide with development workflow
+- [ ] Deployment guide for cloud providers (Railway, Render, Fly.io — all have free tiers)
 
 ---
 
@@ -624,130 +529,82 @@ Smart-Contract-Scanner/
 ```bash
 # Backend
 cd backend
-venv\Scripts\activate
+python -m venv venv
+venv\Scripts\activate       # Windows
+pip install -r requirements.txt
 uvicorn main:app --reload --port 8000
 
-# Frontend (when ready)
+# Frontend
 cd frontend
-npm run dev
-# docker-compose.yml
-version: '3.8'
-services:
-  backend:
-    build: ./backend
-    ports:
-      - "8000:8000"
-    environment:
-      - OLLAMA_HOST=http://ollama:11434
-    depends_on:
-      - ollama
-  
-  frontend:
-    build: ./frontend
-    ports:
-      - "3000:80"
-    depends_on:
-      - backend
-  
-  ollama:
-    image: ollama/ollama
-    volumes:
-      - ollama_data:/root/.ollama
-    ports:
-      - "11434:11434"
+npm install
+npm run dev                 # Runs at localhost:5173
+```
 
-volumes:
-  ollama_data:
-  Cloud Options
-Platform	Pros	Cons
-Railway	Easy, free tier	Limited GPU
-Render	Simple, free tier	Cold starts
-DigitalOcean	Affordable	Manual setup
-AWS EC2	Scalable	Complex
-GCP Cloud Run	Serverless	GPU expensive
-Recommended: Start with Railway or Render for simplicity.
+### Docker (Active)
 
-Note: Ollama requires GPU or good CPU for reasonable performance.
+```bash
+# Production
+docker-compose up --build      # Backend :8000, Frontend :3000
 
-🔒 Security Considerations
-Input Validation
-All inputs validated via Pydantic schemas
-Contract code size limits
-Solidity syntax verification
-Address format validation
-API Security
-CORS configured for specific origins
-Rate limiting per IP (planned)
-Request size limits
-Data Security
-No sensitive data stored
-Contract code is user-provided
-SQLite file permissions
-Environment variables for secrets
-AI Safety
-Local AI (no data sent to cloud)
-Model outputs validated
-JSON parsing with fallbacks
-🔮 Future Enhancements
-Short Term (1-3 months)
- User authentication
- Save favorite contracts
- Compare analyses
- Export to multiple formats
- Email reports
-Medium Term (3-6 months)
- Multi-file contract support
- Import verification
- Custom vulnerability rules
- Team collaboration
- API keys for integration
-Long Term (6-12 months)
- Real-time monitoring
- Automated fix PRs
- IDE plugins (VS Code)
- GitHub integration
- Slither/Mythril integration
- Custom AI model fine-tuning
-📊 Success Metrics
-Metric	Target	Current
-API Response Time	< 60s	~45s
-Detection Accuracy	> 85%	TBD
-False Positive Rate	< 15%	TBD
-Uptime	99.9%	N/A
-Test Coverage	> 80%	0%
-📚 Resources & References
-Solidity Security
-SWC Registry - Smart Contract Weakness Classification
-Consensys Best Practices
-OpenZeppelin Docs
-Tools
-FastAPI Docs
-Ollama Docs
-Foundry Book
-Learning
-Damn Vulnerable DeFi
-Ethernaut
-👥 Contributing
-Fork the repository
-Create a feature branch
-Make your changes
-Run tests
-Submit a pull request
-📄 License
-MIT License - See LICENSE file
-
-📞 Contact
-GitHub: KartikJoshi23
-Project: Smart-Contract-Scanner
-Last Updated: February 2025
-▲▲▲ END - STOP COPYING HERE ▲▲▲
+# Development (hot-reload)
+docker-compose -f docker-compose.dev.yml up --build
+```
 
 ---
 
-Press `Ctrl + S` to save.
+## 🔒 Security Considerations
+
+### Resolved
+- ✅ `.env.example` provides clear guidance for API key setup
+- ✅ `.gitignore` protects `.env` files from being committed
+- ✅ All inputs validated via Pydantic schemas
+- ✅ Contract address format validation (0x + 42 chars)
+
+### Active Protections
+- CORS configured for localhost origins
+- Gemini API with structured JSON output and response sanitization
+- JSON parsing with fallbacks and cleaning
+- Environment variables for secrets
+
+### Planned Improvements
+- [ ] `slowapi` rate limiting activation
+- [ ] Security headers middleware
+- [ ] Configurable CORS origins
+- [ ] Request ID tracking
 
 ---
 
-**Done?**
+## 📊 Success Metrics
 
-Say **"Done"** and also tell me what happened with the Ollama model test!
+| Metric | Target | Current |
+|--------|--------|---------|
+| API Response Time | < 60s | ~30-60s (Gemini) |
+| Detection Accuracy | > 85% | TBD |
+| False Positive Rate | < 15% | TBD |
+| Test Coverage | > 80% | 0% |
+| Networks Supported | 6+ | 6 ✅ |
+| Chatbot Response Time | < 5s | Not yet implemented |
+| Export Formats | JSON + PDF | JSON + PDF ✅ |
+| CI/CD Pipelines | 3 workflows | 3 ✅ |
+
+---
+
+## 📚 Resources & References
+
+### Solidity Security
+- [SWC Registry](https://swcregistry.io/) — Smart Contract Weakness Classification
+- [Consensys Best Practices](https://consensys.github.io/smart-contract-best-practices/)
+- [OpenZeppelin Docs](https://docs.openzeppelin.com/)
+
+### Tools
+- [FastAPI Docs](https://fastapi.tiangolo.com/)
+- [Gemini AI Docs](https://ai.google.dev/docs)
+- [Foundry Book](https://book.getfoundry.sh/)
+
+---
+
+## 📞 Contact
+
+- **GitHub**: [KartikJoshi23](https://github.com/KartikJoshi23)
+- **Project**: [Smart-Contract-Scanner](https://github.com/KartikJoshi23/Smart-Contract-Scanner)
+- **Last Updated**: February 2026

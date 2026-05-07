@@ -1,6 +1,7 @@
 # Web Framework
 fastapi
 uvicorn[standard]
+gunicorn
 python-multipart
 
 # Database
@@ -11,7 +12,10 @@ aiosqlite
 pydantic
 pydantic-settings
 
-# HTTP Client (for Ollama and Alchemy)
+# AI
+google-generativeai
+
+# HTTP Client (for Alchemy)
 httpx
 aiohttp
 
