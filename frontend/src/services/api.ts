@@ -1,8 +1,8 @@
 import axios from 'axios';
 
-// VITE_API_URL should point to the backend's /api prefix.
-// Local dev: not set (uses Vite proxy to /api → localhost:8001)
-// Production: e.g. "https://your-app.onrender.com/api"
+// VITE_API_URL configures the backend API base path.
+// Local dev: not set → uses Vite proxy (/api → localhost:8001)
+// Vercel production: /_/backend/api (same origin via experimentalServices)
 const API_BASE_URL = import.meta.env.VITE_API_URL || '/api';
 
 const api = axios.create({
