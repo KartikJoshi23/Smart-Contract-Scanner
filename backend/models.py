@@ -1,6 +1,6 @@
 from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, Boolean
 from sqlalchemy.orm import relationship
-from datetime import datetime
+from datetime import datetime, timezone
 from database import Base
 
 
@@ -12,7 +12,7 @@ class Contract(Base):
     source_code = Column(Text, nullable=False)
     network = Column(String(50), default="ethereum")
     address = Column(String(42), nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     analyses = relationship("Analysis", back_populates="contract")
 
@@ -25,7 +25,7 @@ class Analysis(Base):
     risk_score = Column(Integer, default=0)
     summary = Column(Text, nullable=True)
     scan_duration_ms = Column(Integer, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     contract = relationship("Contract", back_populates="analyses")
     vulnerabilities = relationship("Vulnerability", back_populates="analysis")
@@ -48,7 +48,7 @@ class Vulnerability(Base):
     line_end = Column(Integer, nullable=True)
     function_name = Column(String(255), nullable=True)
     confidence = Column(String(20), default="medium")
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     analysis = relationship("Analysis", back_populates="vulnerabilities")
 
@@ -58,7 +58,7 @@ class ChatSession(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     analysis_id = Column(Integer, ForeignKey("analyses.id"), nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     analysis = relationship("Analysis", backref="chat_sessions")
     messages = relationship("ChatMessage", back_populates="session", order_by="ChatMessage.created_at")
@@ -71,6 +71,6 @@ class ChatMessage(Base):
     session_id = Column(Integer, ForeignKey("chat_sessions.id"), nullable=False)
     role = Column(String(20), nullable=False)  # user, assistant, system
     content = Column(Text, nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     session = relationship("ChatSession", back_populates="messages")

@@ -1,3 +1,4 @@
+import os
 from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
@@ -6,7 +7,7 @@ from datetime import datetime, timedelta
 from typing import Optional
 import time
 
-from database import get_db, engine
+from database import get_db, engine, SessionLocal
 import models
 import schemas
 from scanner import ContractScanner
@@ -22,10 +23,11 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# CORS middleware — allow all origins for demo deployment
+# CORS middleware — configurable origins (set ALLOWED_ORIGINS in env for production)
+allowed_origins = os.getenv("ALLOWED_ORIGINS", "*").split(",")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -548,10 +550,12 @@ async def chat(
                 role="assistant",
                 content=assistant_content
             )
-            db_session = next(get_db())
+            db_session = SessionLocal()
             try:
                 db_session.add(assistant_msg)
                 db_session.commit()
+            except Exception:
+                db_session.rollback()
             finally:
                 db_session.close()
     

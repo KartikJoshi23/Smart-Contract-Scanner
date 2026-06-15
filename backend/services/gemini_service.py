@@ -2,11 +2,13 @@
 Gemini AI Service — Smart Contract Analysis.
 
 Lazy-initialized to allow the backend to start even without an API key.
+Uses the new `google-genai` SDK (replaces deprecated `google-generativeai`).
 """
 
 import os
 import json
-import google.generativeai as genai
+from google import genai
+from google.genai import types
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -18,7 +20,7 @@ class GeminiService:
     """Orchestrates smart contract vulnerability analysis using Gemini AI."""
 
     def __init__(self):
-        self._model = None
+        self._client = None
         self._configured = False
 
     def _ensure_configured(self):
@@ -29,8 +31,7 @@ class GeminiService:
             raise ValueError(
                 "GEMINI_API_KEY not set. Add it to backend/.env"
             )
-        genai.configure(api_key=GEMINI_API_KEY)
-        self._model = genai.GenerativeModel("gemini-2.5-flash")
+        self._client = genai.Client(api_key=GEMINI_API_KEY)
         self._configured = True
 
     async def analyze_contract(self, source_code: str) -> dict:
@@ -38,12 +39,13 @@ class GeminiService:
         prompt = self._build_prompt(source_code)
 
         try:
-            response = self._model.generate_content(
-                prompt,
-                generation_config=genai.types.GenerationConfig(
+            response = self._client.models.generate_content(
+                model="gemini-2.5-flash",
+                contents=prompt,
+                config=types.GenerateContentConfig(
                     temperature=0.1,
                     max_output_tokens=8192,
-                )
+                ),
             )
 
             response_text = response.text.strip()
@@ -110,7 +112,10 @@ Respond with JSON only:'''
     async def check_connection(self) -> bool:
         try:
             self._ensure_configured()
-            response = self._model.generate_content("Say OK")
+            response = self._client.models.generate_content(
+                model="gemini-2.5-flash",
+                contents="Say OK",
+            )
             return response.text is not None
         except Exception:
             return False

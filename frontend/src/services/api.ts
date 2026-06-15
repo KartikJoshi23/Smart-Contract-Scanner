@@ -1,6 +1,8 @@
 import axios from 'axios';
 
-// Use VITE_API_URL for production (e.g., Render backend URL), fallback to /api for local dev proxy
+// VITE_API_URL should point to the backend's /api prefix.
+// Local dev: not set (uses Vite proxy to /api → localhost:8001)
+// Production: e.g. "https://your-app.onrender.com/api"
 const API_BASE_URL = import.meta.env.VITE_API_URL || '/api';
 
 const api = axios.create({

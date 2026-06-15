@@ -4,10 +4,12 @@ Chat Service — AI-powered Solidity security chatbot using Gemini.
 Provides context-aware chat that understands the current contract
 and its vulnerabilities. Supports streaming responses via SSE.
 Lazy-initialized to allow the backend to start even without an API key.
+Uses the new `google-genai` SDK (replaces deprecated `google-generativeai`).
 """
 
 import json
-import google.generativeai as genai
+from google import genai
+from google.genai import types
 from services.gemini_service import GEMINI_API_KEY
 
 
@@ -29,6 +31,7 @@ MAX_CONTRACT_CHARS = 12000  # Truncate very long contracts
 
 class ChatService:
     def __init__(self):
+        self._client = None
         self._configured = False
 
     def _ensure_configured(self):
@@ -37,7 +40,7 @@ class ChatService:
             return
         if not GEMINI_API_KEY:
             raise ValueError("GEMINI_API_KEY not set. Add it to backend/.env")
-        genai.configure(api_key=GEMINI_API_KEY)
+        self._client = genai.Client(api_key=GEMINI_API_KEY)
         self._configured = True
 
     def _build_context(self, contract_code: str = None, vulnerabilities: list = None) -> str:
@@ -67,9 +70,9 @@ class ChatService:
         contract_code: str = None, 
         vulnerabilities: list = None,
         history: list = None
-    ) -> list:
+    ) -> tuple:
         """Build the message list for Gemini, including context and history."""
-        messages = []
+        contents = []
         
         # Build system context
         context = self._build_context(contract_code, vulnerabilities)
@@ -82,12 +85,12 @@ class ChatService:
             recent = history[-MAX_CONTEXT_MESSAGES:]
             for msg in recent:
                 role = "user" if msg["role"] == "user" else "model"
-                messages.append({"role": role, "parts": [msg["content"]]})
+                contents.append(types.Content(role=role, parts=[types.Part(text=msg["content"])]))
         
         # Add current user message
-        messages.append({"role": "user", "parts": [user_message]})
+        contents.append(types.Content(role="user", parts=[types.Part(text=user_message)]))
         
-        return system_text, messages
+        return system_text, contents
 
     async def chat_stream(
         self,
@@ -98,23 +101,19 @@ class ChatService:
     ):
         """Stream chat response from Gemini. Yields SSE-formatted chunks."""
         self._ensure_configured()
-        system_text, messages = self._build_messages(
+        system_text, contents = self._build_messages(
             user_message, contract_code, vulnerabilities, history
         )
         
         try:
-            model = genai.GenerativeModel(
-                "gemini-2.5-flash",
-                system_instruction=system_text
-            )
-            
-            response = model.generate_content(
-                messages,
-                generation_config=genai.types.GenerationConfig(
+            response = self._client.models.generate_content_stream(
+                model="gemini-2.5-flash",
+                contents=contents,
+                config=types.GenerateContentConfig(
+                    system_instruction=system_text,
                     temperature=0.3,
                     max_output_tokens=4096,
                 ),
-                stream=True
             )
             
             for chunk in response:
@@ -138,22 +137,19 @@ class ChatService:
     ) -> str:
         """Non-streaming chat for simple responses."""
         self._ensure_configured()
-        system_text, messages = self._build_messages(
+        system_text, contents = self._build_messages(
             user_message, contract_code, vulnerabilities, history
         )
         
         try:
-            model = genai.GenerativeModel(
-                "gemini-2.5-flash",
-                system_instruction=system_text
-            )
-            
-            response = model.generate_content(
-                messages,
-                generation_config=genai.types.GenerationConfig(
+            response = self._client.models.generate_content(
+                model="gemini-2.5-flash",
+                contents=contents,
+                config=types.GenerateContentConfig(
+                    system_instruction=system_text,
                     temperature=0.3,
                     max_output_tokens=4096,
-                )
+                ),
             )
             return response.text
         except Exception as e:

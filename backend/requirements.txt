@@ -13,7 +13,7 @@ pydantic
 pydantic-settings
 
 # AI
-google-generativeai
+google-genai
 
 # HTTP Client (for Alchemy)
 httpx
